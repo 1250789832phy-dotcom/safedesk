@@ -9,12 +9,11 @@ on:
 
 jobs:
   test:
-        runs-on: windows-latest
+    runs-on: windows-latest
     strategy:
       fail-fast: false
       matrix:
         python-version: ["3.11", "3.12", "3.13"]
-
     steps:
       - uses: actions/checkout@v4
 
