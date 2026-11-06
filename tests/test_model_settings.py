@@ -1,4 +1,5 @@
 import json
+import sys
 
 import pytest
 from fastapi.testclient import TestClient
@@ -6,6 +7,11 @@ from fastapi.testclient import TestClient
 from agent.service import AgentService
 from apps.api.main import create_app
 
+
+windows_only = pytest.mark.skipif(
+    sys.platform != "win32",
+    reason="Configuration storage uses Windows DPAPI (crypt32)",
+)
 
 HEADERS = {"X-SafeDesk-Settings": "1", "Origin": "http://127.0.0.1:8000"}
 PAYLOAD = {
@@ -43,6 +49,7 @@ def test_page_has_model_configuration_form():
     assert "sessionStorage" not in page
 
 
+@windows_only
 def test_encrypted_configuration_survives_new_app_without_exposing_key(tmp_path):
     path = tmp_path / "model-settings.json"
     client = client_at(path)
@@ -59,6 +66,7 @@ def test_encrypted_configuration_survives_new_app_without_exposing_key(tmp_path)
     assert "encrypted_api_key" not in reloaded
 
 
+@windows_only
 def test_blank_key_keeps_existing_key_but_not_for_different_url(tmp_path):
     path = tmp_path / "settings.json"
     client = client_at(path)
@@ -73,10 +81,11 @@ def test_blank_key_keeps_existing_key_but_not_for_different_url(tmp_path):
     assert client.get("/settings/model").json()["base_url"] == PAYLOAD["base_url"]
 
 
+@windows_only
 def test_mock_mode_is_persisted_and_can_forget_configuration(tmp_path):
     path = tmp_path / "settings.json"
     client = client_at(path)
-    client.put("/settings/model", json=PAYLOAD, headers=HEADERS)
+    assert client.put("/settings/model", json=PAYLOAD, headers=HEADERS).status_code == 200
     response = client.post("/settings/model/mock", headers=HEADERS)
     assert response.status_code == 200
     assert client_at(path).get("/settings/model").json()["mode"] == "mock"
@@ -163,6 +172,7 @@ def test_corrupt_file_does_not_prevent_startup_or_get_overwritten(tmp_path):
     assert path.read_text(encoding="utf-8") == '{"encrypted_api_key":"broken"}'
 
 
+@windows_only
 def test_replacing_or_forgetting_planner_closes_previous_client(tmp_path):
     from types import SimpleNamespace
 
@@ -183,6 +193,7 @@ def test_replacing_or_forgetting_planner_closes_previous_client(tmp_path):
     assert closed == [PAYLOAD["model"], "replacement"]
 
 
+@windows_only
 def test_failed_write_keeps_saved_file_and_planner_and_closes_candidate(tmp_path, monkeypatch):
     from types import SimpleNamespace
 
@@ -212,6 +223,7 @@ def test_failed_write_keeps_saved_file_and_planner_and_closes_candidate(tmp_path
     assert closed == ["replacement"]
 
 
+@windows_only
 def test_reload_decrypts_original_key_for_planner(tmp_path):
     from agent.settings import ModelConfiguration, ModelSettings
     from agent.planner import MockPlanner
@@ -290,6 +302,7 @@ def test_sdk_probe_request_and_response_shape(protocol, budget_exhausted):
         assert body["max_output_tokens"] == 64
 
 
+@windows_only
 def test_sdk_error_cannot_expose_key_in_task_or_history(tmp_path):
     from types import SimpleNamespace
 

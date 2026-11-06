@@ -1,3 +1,5 @@
+import sys
+
 import httpx
 import pytest
 from fastapi.testclient import TestClient
@@ -7,6 +9,11 @@ from agent.planner import MockPlanner
 from agent.service import AgentService
 from apps.api.main import create_app
 
+
+windows_only = pytest.mark.skipif(
+    sys.platform != "win32",
+    reason="Configuration storage uses Windows DPAPI (crypt32)",
+)
 
 HEADERS = {"X-SafeDesk-Settings": "1", "Origin": "http://127.0.0.1:8000"}
 CREDENTIALS = {
@@ -82,6 +89,7 @@ def test_discovery_uses_sdk_models_endpoint_without_model_or_persistence(tmp_pat
     assert client.get("/settings/model").json()["mode"] == "mock"
 
 
+@windows_only
 def test_discovery_reuses_saved_key_without_changing_active_configuration(tmp_path, monkeypatch):
     client = client_at(tmp_path)
     payload = {**CREDENTIALS, "model": "chosen-before-discovery", "protocol": "responses"}
@@ -99,11 +107,13 @@ def test_discovery_reuses_saved_key_without_changing_active_configuration(tmp_pa
     assert clients[0].is_closed
 
 
+@windows_only
 def test_blank_key_cannot_be_sent_to_different_upstream(tmp_path, monkeypatch):
     client = client_at(tmp_path)
-    client.put(
+    saved = client.put(
         "/settings/model", json={**CREDENTIALS, "model": "saved"}, headers=HEADERS
     )
+    assert saved.status_code == 200
     requests, _ = upstream(monkeypatch)
     response = client.post(
         ENDPOINT, json={"base_url": "https://another.example/v1"}, headers=HEADERS

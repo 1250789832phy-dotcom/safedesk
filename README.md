@@ -99,6 +99,8 @@ python -m pytest -q
 
 覆盖 9 个维度：Agent 主流程、受控改动全链路、上下文检索、模型配置、上游模型发现、Web 界面、评测框架自身、文件读取契约、健康检查。
 
+CI 矩阵覆盖 Ubuntu / Windows 与 Python 3.11 / 3.12 / 3.13，共 6 组。核心测试在两种系统运行；9 个依赖真实 Windows DPAPI 的加密配置用例仅在 Windows 运行，在 Linux 上通过 `skipif` 明确跳过，其余用例不跳过。
+
 ## 评测
 
 ```bash
@@ -116,6 +118,8 @@ python -m evaluation.run
 **语料范围**：切分器覆盖 Markdown 与 Python，其他语言回退到段落切分。
 
 **持久化**：任务与记忆当前在进程内存中；改动备份与评测输出落在 `data/`。
+
+**平台支持**：模型配置的密钥加密持久化依赖 Windows DPAPI（`crypt32`），仅支持当前 Windows 用户。双系统 CI 不代表 Linux 已支持加密配置保存；Linux 可运行不依赖该功能的核心流程与测试。
 
 **边界**：面向本地单机使用。不含无人值守监听、唤醒词、任意 shell/Python 执行、自动部署或推送、以及不受限制的自动修复。
 
