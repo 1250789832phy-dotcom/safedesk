@@ -1,0 +1,43 @@
+# 密钥与本地配置
+.env
+.env.*
+!.env.example
+
+# 运行时数据：日志、缓存、备份
+logs/
+*.log
+data/backups/
+data/model-settings.json
+data/task-history-*.json
+*.sqlite
+*.sqlite3
+*.db
+
+# 评测报告与界面截图要进仓库（它们是证据），只忽略临时产物
+!data/evaluation.json
+!data/*.png
+
+# 语音与录制产物
+recordings/
+*.wav
+*.webm
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+
+# 编辑器与系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

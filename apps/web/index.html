@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SafeDesk</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+      color: #17232b;
+      background: #f3f6f5;
+      --ink: #17232b;
+      --muted: #5b6b70;
+      --line: #d6dfdc;
+      --teal: #176b63;
+      --orange: #a54e27;
+      --paper: #fff;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; }
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 24px; background: var(--ink); color: #fff;
+    }
+    header strong { font-size: 18px; }
+    header span { color: #d5e4df; font-size: 13px; }
+    main {
+      display: grid; grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+      max-width: 1240px; margin: 0 auto; min-height: calc(100vh - 52px);
+    }
+    aside { padding: 22px; border-right: 1px solid var(--line); background: #e9efed; }
+    section { padding: 22px 28px; min-width: 0; }
+    h1 { font-size: 21px; margin: 0 0 18px; }
+    h2 { font-size: 15px; margin: 24px 0 10px; }
+    label { display: block; color: var(--muted); font-size: 13px; margin: 14px 0 6px; }
+    textarea, select, input:not([type="checkbox"]) {
+      width: 100%; border: 1px solid #9eaeaa; border-radius: 4px;
+      padding: 10px; font: inherit; background: #fff; color: var(--ink);
+    }
+    textarea { min-height: 145px; resize: vertical; }
+    button {
+      border: 0; border-radius: 4px; padding: 9px 12px; cursor: pointer;
+      font: inherit; font-weight: 600;
+    }
+    button:disabled { cursor: not-allowed; opacity: .55; }
+    .primary { background: var(--teal); color: white; }
+    .secondary { background: #dce6e2; color: var(--ink); }
+    .danger { background: #f5e5d9; color: #7e351a; }
+    .row { display: flex; gap: 8px; align-items: center; }
+    .row > button { flex: 1; }
+    .speech-controls > button { padding: 9px 8px; font-size: 14px; white-space: nowrap; }
+    .speech-controls > #record { flex: 1.6; }
+    #status { display: inline-block; padding: 3px 8px; border-radius: 3px; background: #dce6e2; }
+    #status.failed, #status.blocked { background: #f5e5d9; color: #7e351a; }
+    #status.succeeded { background: #dceee3; color: #145a37; }
+    .meta { color: var(--muted); font-size: 13px; }
+    pre {
+      white-space: pre-wrap; overflow-wrap: anywhere; max-height: 330px; overflow: auto;
+      padding: 12px; border: 1px solid var(--line); background: var(--paper);
+      border-radius: 4px; font: 13px/1.5 Consolas, monospace;
+    }
+    #taskList { padding: 0; list-style: none; }
+    #taskList button {
+      width: 100%; text-align: left; margin: 3px 0; background: transparent;
+      border-bottom: 1px solid var(--line); border-radius: 0; color: var(--ink);
+    }
+    #notice { min-height: 20px; color: var(--orange); font-size: 13px; }
+    .configuration { border-bottom: 1px solid var(--line); background: #fff; }
+    #model-settings { max-width: 1240px; margin: 0 auto; padding: 14px 22px; }
+    #model-settings summary { cursor: pointer; font-weight: 600; }
+    #model-mode { margin-left: 14px; font-weight: 400; overflow-wrap: anywhere; }
+    .model-fields {
+      display: grid; grid-template-columns: minmax(180px, 2fr) repeat(3, minmax(140px, 1fr));
+      gap: 14px; align-items: start;
+    }
+    .model-fields > div { min-width: 0; }
+    .key-toggle { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+    #model-list-notice { margin: 6px 0 0; overflow-wrap: anywhere; }
+    .model-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    #model-notice { min-height: 20px; margin: 10px 0 0; font-size: 13px; color: var(--teal); overflow-wrap: anywhere; }
+    #model-notice.error { color: #963e22; }
+    @media (max-width: 960px) {
+      .model-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 720px) {
+      main { grid-template-columns: 1fr; }
+      aside { border-right: 0; border-bottom: 1px solid var(--line); }
+      section { padding: 20px; }
+      header { padding: 12px 16px; }
+      header span { max-width: 55%; text-align: right; }
+    }
+    @media (max-width: 480px) {
+      .model-fields { grid-template-columns: minmax(0, 1fr); gap: 0; }
+      #model-settings { padding: 14px 20px; }
+      .model-actions > button { flex: 1 1 42%; }
+    }
+  </style>
+</head>
+<body>
+  <header><strong>SafeDesk</strong><span>本地智能体工作台</span></header>
+  <div class="configuration">
+    <details id="model-settings" open>
+      <summary>模型设置<span class="meta" id="model-mode">正在读取配置...</span></summary>
+      <form id="model-form" autocomplete="off">
+        <div class="model-fields">
+          <div>
+            <label for="api-url">API 地址（Base URL）</label>
+            <input id="api-url" type="url" required maxlength="2000" placeholder="https://api.example.com/v1" spellcheck="false">
+          </div>
+          <div>
+            <label for="model-name">模型名称</label>
+            <input id="model-name" type="text" required maxlength="200" placeholder="服务商提供的模型 ID" spellcheck="false">
+            <div id="upstream-model-field" hidden>
+              <label for="upstream-model">上游模型</label>
+              <select id="upstream-model" disabled>
+                <option value="">请选择模型</option>
+              </select>
+              <p class="meta" id="model-list-notice" role="status" aria-live="polite"></p>
+            </div>
+          </div>
+          <div>
+            <label for="api-protocol">接口协议</label>
+            <select id="api-protocol">
+              <option value="chat_completions">Chat Completions</option>
+              <option value="responses">Responses</option>
+            </select>
+          </div>
+          <div>
+            <label for="api-key">API Key</label>
+            <input id="api-key" type="password" maxlength="4096" autocomplete="off" placeholder="填写密钥" spellcheck="false">
+            <label class="key-toggle" for="show-key"><input id="show-key" type="checkbox">显示密钥</label>
+          </div>
+        </div>
+        <div class="model-actions">
+          <button class="secondary" id="fetch-models" type="button">获取模型</button>
+          <button class="primary" id="save-model" type="submit">保存并启用</button>
+          <button class="secondary" id="test-model" type="button">测试连接</button>
+          <button class="secondary" id="mock-model" type="button">切回模拟模式</button>
+          <button class="danger" id="forget-model" type="button">删除已存配置</button>
+        </div>
+      </form>
+      <p id="model-notice" role="status" aria-live="polite"></p>
+    </details>
+  </div>
+  <main>
+    <aside>
+      <h1>新建任务</h1>
+      <label for="task">任务内容</label>
+      <textarea id="task" maxlength="4000" placeholder="读取 example.txt"></textarea>
+      <div class="row speech-controls">
+        <button class="secondary" id="record" type="button">语音输入</button>
+        <button class="secondary" id="stop-record" type="button" disabled>停止</button>
+        <button class="secondary" id="cancel-record" type="button" disabled>取消</button>
+        <button class="secondary" id="clear" type="button" title="清空任务内容">清空</button>
+      </div>
+      <p id="notice" aria-live="polite"></p>
+      <label for="output">输出方式</label>
+      <select id="output">
+        <option value="text">文字</option>
+        <option value="voice">语音</option>
+        <option value="both" selected>文字 + 语音</option>
+      </select>
+      <p><button class="primary" id="submit" type="button">运行任务</button></p>
+      <div class="row">
+        <h2>最近任务</h2>
+        <button class="secondary" id="refresh" type="button">刷新</button>
+      </div>
+      <ul id="taskList"></ul>
+    </aside>
+    <section aria-live="polite">
+      <h1>执行情况</h1>
+      <p>状态：<strong id="status">空闲</strong></p>
+      <p class="meta" id="taskId">尚未选择任务</p>
+      <h2>执行计划</h2><pre id="plan">暂无执行计划。</pre>
+      <h2>执行记录</h2><pre id="trace">暂无工具调用。</pre>
+      <h2>任务报告</h2><pre id="report">暂无任务报告。</pre>
+    </section>
+  </main>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let selectedTask = null;
+    let recognition = null;
+    let recognitionCancelled = false;
+    const taskCache = new Map();
+    const statusLabels = new Map([
+      ["idle", "空闲"],
+      ["received", "已接收"],
+      ["clarifying", "待补充信息"],
+      ["planned", "已规划"],
+      ["waiting_confirmation", "待确认"],
+      ["running", "执行中"],
+      ["verifying", "验证中"],
+      ["succeeded", "已完成"],
+      ["failed", "失败"],
+      ["blocked", "已阻止"]
+    ]);
+    const speechErrors = new Map([
+      ["no-speech", "未检测到语音"],
+      ["aborted", "录音已中止"],
+      ["audio-capture", "无法访问麦克风"],
+      ["network", "语音服务网络连接失败"],
+      ["not-allowed", "未获得麦克风或语音识别权限"],
+      ["service-not-allowed", "浏览器不允许使用语音服务"],
+      ["bad-grammar", "语音识别语法配置无效"],
+      ["language-not-supported", "语音服务不支持当前语言"]
+    ]);
+
+    function showNotice(message) { $("notice").textContent = message; }
+    function statusLabel(status) {
+      return statusLabels.get(status) || `未知状态（${status}）`;
+    }
+
+    function renderTask(task, speak = false) {
+      selectedTask = task.task_id;
+      taskCache.set(task.task_id, task);
+      $("status").textContent = statusLabel(task.status);
+      $("status").className = task.status;
+      $("taskId").textContent = `任务编号：${task.task_id}`;
+      $("plan").textContent = task.plan
+        ? JSON.stringify(task.plan, null, 2)
+        : (task.clarification_question || "暂无执行计划。");
+      $("trace").textContent = JSON.stringify({
+        retrieval_mode: task.retrieval_mode,
+        context_sources: task.context_sources,
+        context_truncated: task.context_truncated,
+        tools: task.trace
+      }, null, 2);
+      $("report").textContent = task.report || "暂无任务报告。";
+      renderTaskList();
+      if (speak && task.output_preference !== "text" && task.report && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(task.report);
+        utterance.onerror = () => showNotice("语音播放失败，文字报告仍可查看。");
+        window.speechSynthesis.speak(utterance);
+      } else if (speak && task.output_preference !== "text" && !("speechSynthesis" in window)) {
+        showNotice("当前浏览器无法语音播报，文字报告仍可查看。");
+      }
+    }
+
+    function renderTaskList() {
+      const list = $("taskList");
+      list.replaceChildren();
+      [...taskCache.values()].reverse().forEach((task) => {
+        const item = document.createElement("li");
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = `${statusLabel(task.status)} · ${task.request.slice(0, 42)}`;
+        button.addEventListener("click", () => renderTask(task));
+        item.append(button);
+        list.append(item);
+      });
+    }
+
+    async function loadTaskHistory() {
+      try {
+        const response = await fetch("/tasks");
+        if (!response.ok) throw new Error(`服务器返回 HTTP ${response.status}`);
+        const tasks = await response.json();
+        taskCache.clear();
+        tasks.forEach((task) => taskCache.set(task.task_id, task));
+        renderTaskList();
+      } catch (error) {
+        showNotice(`无法加载任务历史：${error}`);
+      }
+    }
+
+    $("submit").addEventListener("click", async () => {
+      const task = $("task").value.trim();
+      if (!task) { showNotice("请先输入任务内容，或使用语音输入。"); return; }
+      $("submit").disabled = true;
+      showNotice("正在提交任务...");
+      try {
+        const response = await fetch("/tasks", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({task, output_preference: $("output").value})
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+          const detail = payload.detail;
+          throw new Error(
+            (typeof detail === "string" ? detail : JSON.stringify(detail))
+              || `服务器返回 HTTP ${response.status}`
+          );
+        }
+        renderTask(payload, true);
+        showNotice("");
+      } catch (error) {
+        showNotice(`任务提交失败：${error}`);
+      } finally {
+        $("submit").disabled = false;
+      }
+    });
+
+    $("clear").addEventListener("click", () => { $("task").value = ""; showNotice(""); });
+    $("refresh").addEventListener("click", loadTaskHistory);
+
+    $("record").addEventListener("click", () => {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        showNotice("当前浏览器不支持语音识别，请使用文字输入。");
+        return;
+      }
+      recognition = new SpeechRecognition();
+      recognitionCancelled = false;
+      recognition.lang = navigator.language || "en-US";
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      $("record").disabled = true;
+      $("stop-record").disabled = false;
+      $("cancel-record").disabled = false;
+      showNotice("正在录音，请停止录音并核对识别文字后再运行任务。");
+      recognition.onresult = (event) => {
+        let text = "";
+        for (let i = 0; i < event.results.length; i++) text += event.results[i][0].transcript;
+        $("task").value = text;
+      };
+      recognition.onerror = (event) => {
+        const reason = speechErrors.get(event.error) || `未知错误（${event.error}）`;
+        showNotice(`语音识别失败：${reason}。你仍可输入文字任务。`);
+      };
+      recognition.onend = () => {
+        recognition = null;
+        $("record").disabled = false;
+        $("stop-record").disabled = true;
+        $("cancel-record").disabled = true;
+        if (recognitionCancelled) {
+          showNotice("已取消录音。");
+        } else if ($("task").value) {
+          showNotice("请核对或编辑识别文字，再运行任务。");
+        } else {
+          showNotice("未识别到语音，你仍可输入文字任务。");
+        }
+      };
+      try {
+        recognition.start();
+      } catch (error) {
+        recognition = null;
+        $("record").disabled = false;
+        $("stop-record").disabled = true;
+        $("cancel-record").disabled = true;
+        showNotice(`无法启动语音识别：${error}`);
+      }
+    });
+
+    $("stop-record").addEventListener("click", () => {
+      if (recognition) recognition.stop();
+    });
+
+    $("cancel-record").addEventListener("click", () => {
+      if (!recognition) return;
+      recognitionCancelled = true;
+      recognition.abort();
+      $("task").value = "";
+    });
+
+    let settingsBusy = false;
+    let upstreamModels = [];
+    let modelListBaseUrl = "";
+    function clearModelList() {
+      upstreamModels = [];
+      modelListBaseUrl = "";
+      $("upstream-model").replaceChildren(new Option("请选择模型", ""));
+      $("upstream-model").disabled = true;
+      $("upstream-model-field").hidden = true;
+      $("model-list-notice").textContent = "";
+    }
+
+    function syncModelSelection() {
+      const model = $("model-name").value.trim();
+      $("upstream-model").value = upstreamModels.includes(model) ? model : "";
+    }
+
+    function settingsNotice(message, error = false) {
+      $("model-notice").textContent = message;
+      $("model-notice").className = error ? "error" : "";
+    }
+
+    function settingsPayload() {
+      return {
+        base_url: $("api-url").value.trim(),
+        model: $("model-name").value.trim(),
+        protocol: $("api-protocol").value,
+        api_key: $("api-key").value
+      };
+    }
+
+    function renderSettings(configuration, preserveModelList = false) {
+      const labels = {mock: "模拟模式", api: "API 模式", environment: "环境变量配置"};
+      $("model-mode").textContent = labels[configuration.mode] || "未知模式";
+      $("api-url").value = configuration.base_url || "";
+      $("model-name").value = configuration.model || "";
+      $("api-protocol").value = configuration.protocol || "chat_completions";
+      $("api-key").value = "";
+      $("api-key").type = "password";
+      $("api-key").placeholder = configuration.has_api_key ? "已加密保存，留空保留" : "填写密钥";
+      $("show-key").checked = false;
+      if (!preserveModelList || configuration.base_url !== modelListBaseUrl || !configuration.has_api_key) {
+        clearModelList();
+      }
+      syncModelSelection();
+      if (configuration.load_error) {
+        settingsNotice("已存配置无法读取或解密，当前使用模拟模式。原文件未改动，请检查后重新配置。", true);
+      }
+    }
+
+    async function settingsRequest(method, suffix = "", payload) {
+      let response;
+      try {
+        response = await fetch(`/settings/model${suffix}`, {
+          method,
+          headers: {"Content-Type": "application/json", "X-SafeDesk-Settings": "1"},
+          ...(payload ? {body: JSON.stringify(payload)} : {})
+        });
+      } catch {
+        throw new Error("无法连接本地服务，请从 http://127.0.0.1:8000/ 打开页面并确认服务已启动。");
+      }
+      if (!response.ok) {
+        let detail = "设置操作失败，请检查本地服务。";
+        try {
+          const body = await response.json();
+          if (typeof body.detail === "string") detail = body.detail;
+        } catch {}
+        throw new Error(detail);
+      }
+      return response.json();
+    }
+
+    async function runSettingsAction(action) {
+      if (settingsBusy) return;
+      settingsBusy = true;
+      const controls = $("model-form").querySelectorAll("input, select, button");
+      controls.forEach((control) => { control.disabled = true; });
+      try {
+        await action();
+      } catch (error) {
+        settingsNotice(error.message, true);
+      } finally {
+        settingsBusy = false;
+        controls.forEach((control) => { control.disabled = false; });
+        $("upstream-model").disabled = upstreamModels.length === 0;
+      }
+    }
+
+    $("api-url").addEventListener("input", clearModelList);
+    $("api-key").addEventListener("input", clearModelList);
+    $("model-name").addEventListener("input", syncModelSelection);
+    $("upstream-model").addEventListener("change", () => {
+      if ($("upstream-model").value) $("model-name").value = $("upstream-model").value;
+    });
+    $("fetch-models").addEventListener("click", () => {
+      if (!$("api-url").reportValidity()) return;
+      const payload = {
+        base_url: $("api-url").value.trim(),
+        api_key: $("api-key").value
+      };
+      runSettingsAction(async () => {
+        clearModelList();
+        settingsNotice("正在获取上游模型...");
+        const result = await settingsRequest("POST", "/models", payload);
+        upstreamModels = result.models;
+        modelListBaseUrl = payload.base_url;
+        $("upstream-model").replaceChildren(
+          new Option("请选择模型", ""),
+          ...upstreamModels.map((model) => new Option(model, model))
+        );
+        $("upstream-model-field").hidden = false;
+        $("model-list-notice").textContent = result.message;
+        syncModelSelection();
+        settingsNotice(
+          upstreamModels.length ? "模型列表已获取，当前启用配置未改变。" : result.message
+        );
+      });
+    });
+    $("show-key").addEventListener("change", () => {
+      $("api-key").type = $("show-key").checked ? "text" : "password";
+    });
+    $("model-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const payload = settingsPayload();
+      runSettingsAction(async () => {
+        settingsNotice("正在加密保存配置...");
+        renderSettings(await settingsRequest("PUT", "", payload), true);
+        settingsNotice("配置已加密保存并启用，重启后自动加载。连接尚未验证。");
+      });
+    });
+    $("test-model").addEventListener("click", () => {
+      if (!$("model-form").reportValidity()) return;
+      if (!window.confirm("测试将向填写的 API 地址发送一条短请求，可能产生费用。是否继续？")) return;
+      const payload = settingsPayload();
+      runSettingsAction(async () => {
+        settingsNotice("正在测试模型连接...");
+        const result = await settingsRequest("POST", "/test", payload);
+        settingsNotice(result.message);
+      });
+    });
+    $("mock-model").addEventListener("click", () => {
+      runSettingsAction(async () => {
+        renderSettings(await settingsRequest("POST", "/mock"));
+        settingsNotice("已切回模拟模式；加密配置已保留。");
+      });
+    });
+    $("forget-model").addEventListener("click", () => {
+      if (!window.confirm("删除本地已保存的地址、模型和密钥，并切回模拟模式？")) return;
+      runSettingsAction(async () => {
+        renderSettings(await settingsRequest("DELETE"));
+        settingsNotice("已删除保存的配置，当前使用模拟模式。");
+      });
+    });
+    async function loadSettings() {
+      try {
+        renderSettings(await settingsRequest("GET"));
+      } catch (error) {
+        $("model-mode").textContent = "配置读取失败";
+        settingsNotice(error.message, true);
+      }
+    }
+    loadSettings();
+    loadTaskHistory();
+  </script>
+</body>
+</html>

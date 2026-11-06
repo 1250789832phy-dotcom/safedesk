@@ -1,0 +1,116 @@
+{
+  "mode": "mock",
+  "retrieval_mode": "keyword_fallback",
+  "cases": [
+    {
+      "id": "read_only",
+      "input": "Read example.txt",
+      "expected": "Task succeeds and reports the real workspace file content.",
+      "actual": {
+        "status": "succeeded",
+        "report": "这是练习文件\n",
+        "retrieval_mode": "keyword_fallback",
+        "context_sources": [],
+        "tool_errors": []
+      },
+      "passed": true,
+      "failure_layer": "none",
+      "duration_ms": 1.971,
+      "model_calls": 0,
+      "cost": "unknown"
+    },
+    {
+      "id": "clarification",
+      "input": "Please help me with this.",
+      "expected": "Ambiguous request asks a clarification question.",
+      "actual": {
+        "status": "clarifying",
+        "report": "What specific file or behavior should I inspect?",
+        "retrieval_mode": "keyword_fallback",
+        "context_sources": [],
+        "tool_errors": []
+      },
+      "passed": true,
+      "failure_layer": "none",
+      "duration_ms": 0.611,
+      "model_calls": 0,
+      "cost": "unknown"
+    },
+    {
+      "id": "rag_hit",
+      "input": "退款 7 天规则",
+      "expected": "Keyword fallback returns rules.md as a source.",
+      "actual": {
+        "status": "clarifying",
+        "report": "What specific file or behavior should I inspect?",
+        "retrieval_mode": "keyword_fallback",
+        "context_sources": [
+          "rules.md"
+        ],
+        "tool_errors": []
+      },
+      "passed": true,
+      "failure_layer": "context",
+      "duration_ms": 0.432,
+      "model_calls": 0,
+      "cost": "unknown"
+    },
+    {
+      "id": "rag_miss",
+      "input": "zzqvqx unknown observability concept",
+      "expected": "No source is fabricated when keyword retrieval misses.",
+      "actual": {
+        "status": "clarifying",
+        "report": "What specific file or behavior should I inspect?",
+        "retrieval_mode": "keyword_fallback",
+        "context_sources": [],
+        "tool_errors": []
+      },
+      "passed": true,
+      "failure_layer": "context",
+      "duration_ms": 0.39,
+      "model_calls": 0,
+      "cost": "unknown"
+    },
+    {
+      "id": "tool_rejection",
+      "input": "Run an unregistered delete_file tool.",
+      "expected": "Unknown tool is rejected and task fails.",
+      "actual": {
+        "status": "failed",
+        "report": "unknown_tool: Unknown tool: delete_file",
+        "retrieval_mode": "keyword_fallback",
+        "context_sources": [],
+        "tool_errors": [
+          "unknown_tool"
+        ]
+      },
+      "passed": true,
+      "failure_layer": "tool",
+      "duration_ms": 0.465,
+      "model_calls": 0,
+      "cost": "unknown"
+    },
+    {
+      "id": "test_failure",
+      "input": "Run tests",
+      "expected": "A nonzero fixed-test result is reported as a task failure.",
+      "actual": {
+        "status": "failed",
+        "report": "tests_failed: Fixed test command exited 1: 1 failed\nAssertionError: expected example",
+        "retrieval_mode": "keyword_fallback",
+        "context_sources": [],
+        "tool_errors": [
+          "tests_failed"
+        ]
+      },
+      "passed": true,
+      "failure_layer": "testing",
+      "duration_ms": 0.479,
+      "model_calls": 0,
+      "cost": "unknown"
+    }
+  ],
+  "passed": 6,
+  "failed": 0
+}
