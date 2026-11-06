@@ -125,4 +125,4 @@ python -m evaluation.run
 
 ## 许可
 
-见 [LICENSE](LICENSE)。
+[MIT](LICENSE)
