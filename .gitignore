@@ -36,6 +36,10 @@ env/
 build/
 dist/
 
+# pytest 临时残渣（Windows 下临时目录权限受保护，删不掉时至少别提交）
+pytest-of-*/
+pytest-cache-files-*/
+
 # 编辑器与系统
 .vscode/
 .idea/
