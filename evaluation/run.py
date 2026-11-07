@@ -71,7 +71,9 @@ def run_evaluation():
                 **case,
                 "actual": actual,
                 "passed": passed,
-                "failure_layer": _failure_layer(case["id"], record),
+                # 归因只在失败时才有意义：通过的用例写入 "none"，
+                # 否则报告里会出现 passed=true 与 failure_layer=context 并存的矛盾记录。
+                "failure_layer": "none" if passed else _failure_layer(case["id"], record),
                 "duration_ms": duration_ms,
                 "model_calls": 0,
                 "cost": "unknown",

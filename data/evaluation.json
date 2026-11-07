@@ -15,7 +15,7 @@
       },
       "passed": true,
       "failure_layer": "none",
-      "duration_ms": 1.971,
+      "duration_ms": 2.647,
       "model_calls": 0,
       "cost": "unknown"
     },
@@ -32,7 +32,7 @@
       },
       "passed": true,
       "failure_layer": "none",
-      "duration_ms": 0.611,
+      "duration_ms": 0.397,
       "model_calls": 0,
       "cost": "unknown"
     },
@@ -50,8 +50,8 @@
         "tool_errors": []
       },
       "passed": true,
-      "failure_layer": "context",
-      "duration_ms": 0.432,
+      "failure_layer": "none",
+      "duration_ms": 0.357,
       "model_calls": 0,
       "cost": "unknown"
     },
@@ -67,8 +67,8 @@
         "tool_errors": []
       },
       "passed": true,
-      "failure_layer": "context",
-      "duration_ms": 0.39,
+      "failure_layer": "none",
+      "duration_ms": 0.337,
       "model_calls": 0,
       "cost": "unknown"
     },
@@ -86,8 +86,8 @@
         ]
       },
       "passed": true,
-      "failure_layer": "tool",
-      "duration_ms": 0.465,
+      "failure_layer": "none",
+      "duration_ms": 0.36,
       "model_calls": 0,
       "cost": "unknown"
     },
@@ -105,8 +105,8 @@
         ]
       },
       "passed": true,
-      "failure_layer": "testing",
-      "duration_ms": 0.479,
+      "failure_layer": "none",
+      "duration_ms": 0.357,
       "model_calls": 0,
       "cost": "unknown"
     }
