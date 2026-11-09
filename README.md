@@ -70,16 +70,29 @@
 
 ## 快速开始
 
-```bash
+需要 Python 3.11 或更高版本。以下命令均在仓库根目录执行。
+
+Windows PowerShell（直接使用虚拟环境的 Python，无需激活）：
+
+```powershell
 python -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m uvicorn apps.api.main:app --reload --port 8000
 ```
 
-启动接口：
+Linux / macOS：
 
 ```bash
-uvicorn apps.api.main:app --reload --port 8000
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python -m uvicorn apps.api.main:app --reload --port 8000
+```
+
+Windows PowerShell 下运行测试：
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q
 ```
 
 打开 <http://127.0.0.1:8000> 使用 Web 工作台。
