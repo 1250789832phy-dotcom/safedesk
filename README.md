@@ -97,12 +97,36 @@ Windows PowerShell 下运行测试：
 
 打开 <http://127.0.0.1:8000> 使用 Web 工作台。
 
-配置模型（可选，不配置则使用 mock planner）：
+配置模型（可选；没有已保存的工作台配置时，默认使用 mock planner）：
+
+`.env.example` 仅供参考，应用不会自动加载 `.env`。若使用环境变量，
+请在启动服务前，在同一个终端设置以下变量；已运行的服务需要停止后重新启动。
+
+Windows PowerShell：
+
+```powershell
+$env:SAFE_DESK_MODEL = "openai"
+$env:OPENAI_API_KEY = "replace-with-your-api-key"
+$env:OPENAI_MODEL = "your-model-name"
+# 可选：使用兼容服务时设置其基础地址
+# $env:OPENAI_BASE_URL = "https://your-provider.example/v1"
+.\.venv\Scripts\python.exe -m uvicorn apps.api.main:app --reload --port 8000
+```
+
+Linux / macOS（先激活上面的虚拟环境）：
 
 ```bash
-cp .env.example .env
-# 填入 OPENAI_API_KEY 与 base_url
+export SAFE_DESK_MODEL=openai
+export OPENAI_API_KEY="replace-with-your-api-key"
+export OPENAI_MODEL="your-model-name"
+# 可选：使用兼容服务时设置其基础地址
+# export OPENAI_BASE_URL="https://your-provider.example/v1"
+python -m uvicorn apps.api.main:app --reload --port 8000
 ```
+
+环境变量方式使用 Responses 协议。若上游只支持 Chat Completions，
+请使用工作台中的模型配置选择对应协议。已保存的工作台配置
+（`data/model-settings.json`，包括 mock 模式）会优先于启动时的环境变量生效。
 
 ## 测试
 
