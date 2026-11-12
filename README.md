@@ -128,6 +128,23 @@ python -m uvicorn apps.api.main:app --reload --port 8000
 请使用工作台中的模型配置选择对应协议。已保存的工作台配置
 （`data/model-settings.json`，包括 mock 模式）会优先于启动时的环境变量生效。
 
+这些变量只会在服务进程启动时读取；修改变量后必须停止并重新启动服务。
+若要在当前终端恢复默认的 mock planner：
+
+Windows PowerShell：
+
+```powershell
+Remove-Item Env:SAFE_DESK_MODEL, Env:OPENAI_API_KEY, Env:OPENAI_MODEL, Env:OPENAI_BASE_URL -ErrorAction SilentlyContinue
+.\.venv\Scripts\python.exe -m uvicorn apps.api.main:app --reload --port 8000
+```
+
+Linux / macOS：
+
+```bash
+unset SAFE_DESK_MODEL OPENAI_API_KEY OPENAI_MODEL OPENAI_BASE_URL
+python -m uvicorn apps.api.main:app --reload --port 8000
+```
+
 ## 测试
 
 ```bash
