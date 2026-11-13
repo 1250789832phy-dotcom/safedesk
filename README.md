@@ -147,6 +147,14 @@ python -m uvicorn apps.api.main:app --reload --port 8000
 
 ## 测试
 
+Windows PowerShell（不激活虚拟环境也可以直接运行）：
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+Linux / macOS（已激活上面的虚拟环境）：
+
 ```bash
 python -m pytest -q
 ```
