@@ -18,4 +18,4 @@
 - [x] Add `windows_only = pytest.mark.skipif(sys.platform != "win32", reason="Configuration storage uses Windows DPAPI (crypt32)")` in both settings-related test modules and decorate only tests that require successful encrypted persistence.
 - [x] Add `os: [ubuntu-latest, windows-latest]` to the workflow matrix, use `runs-on: ${{ matrix.os }}`, and include `${{ matrix.os }}` in artifact names. Use `continue-on-error: true` for the existing best-effort evaluation step instead of shell-specific `|| true`.
 - [x] Update README with the six-job matrix and Windows-only encrypted configuration limitation.
-- [ ] Run the complete Windows suite and evaluation, inspect the diff, commit only scoped files, push, and verify all six remote CI jobs.
+- [x] Run the complete Windows suite and evaluation, inspect the diff, commit only scoped files, push, and verify all six remote CI jobs.
