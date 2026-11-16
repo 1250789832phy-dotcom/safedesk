@@ -53,16 +53,22 @@
 
 ## 评测结果
 
-评测集 6 个用例，覆盖成功路径与四类失败归因：
+评测集 6 个用例，覆盖文件读取、澄清、检索命中与未命中、
+未注册工具拒绝和固定测试失败上报：
 
-| 用例 | 验证内容 | 归因层 | 结果 |
+| 用例 | 验证内容 | 评测失败归因 (`failure_layer`) | 结果 |
 |---|---|---|---|
-| `read_only` | 真实读取工作区文件并回报内容 | — | 通过 |
-| `clarification` | 模糊需求必须反问而非猜测 | — | 通过 |
-| `rag_hit` | 检索命中时来源可追溯 | context | 通过 |
-| `rag_miss` | 检索未命中时不得编造来源 | context | 通过 |
-| `tool_rejection` | 未注册工具被拒绝、任务判失败 | tool | 通过 |
-| `test_failure` | 固定测试非零退出被如实上报 | testing | 通过 |
+| `read_only` | 真实读取工作区文件并回报内容 | `none` | 通过 |
+| `clarification` | 模糊需求必须反问而非猜测 | `none` | 通过 |
+| `rag_hit` | 检索命中时来源可追溯 | `none` | 通过 |
+| `rag_miss` | 检索未命中时不得编造来源 | `none` | 通过 |
+| `tool_rejection` | 未注册工具被拒绝、任务判失败 | `none` | 通过 |
+| `test_failure` | 固定测试非零退出被如实上报 | `none` | 通过 |
+
+`failure_layer` 只归因评测用例未满足预期的情况，通过时为 `none`。
+`tool_rejection` 和 `test_failure` 预期 Agent 将任务判为失败；
+正确拒绝未知工具、正确上报注入的非零测试结果，均表示评测通过。
+后者使用模拟测试工具返回值，不代表在评测中启动了一次真实失败的 pytest。
 
 **6 / 6 通过。** 完整报告见 [`data/evaluation.json`](data/evaluation.json)。
 
