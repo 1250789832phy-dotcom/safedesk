@@ -135,7 +135,15 @@ python -m uvicorn apps.api.main:app --reload --port 8000
 （`data/model-settings.json`，包括 mock 模式）会优先于启动时的环境变量生效。
 
 这些变量只会在服务进程启动时读取；修改变量后必须停止并重新启动服务。
-若要在当前终端恢复默认的 mock planner：
+恢复 mock 时应区分配置来源：
+
+- 如果已有工作台配置，在页面“模型设置”中点击“切回模拟模式”。
+  这会保存 mock 模式并保留加密密钥，重启后仍为 mock。
+- 若还要移除已保存的地址、模型和密钥，使用“删除已存配置”并确认。
+  该操作也会保存 mock 模式，不会恢复为环境变量配置。
+
+只有在不存在已保存的工作台配置时，才能通过以下命令清空当前终端变量、
+重启服务并恢复默认的 mock planner。清空变量不能覆盖已保存的 API 模式。
 
 Windows PowerShell：
 
@@ -150,6 +158,9 @@ Linux / macOS：
 unset SAFE_DESK_MODEL OPENAI_API_KEY OPENAI_MODEL OPENAI_BASE_URL
 python -m uvicorn apps.api.main:app --reload --port 8000
 ```
+
+可通过 `GET /settings/model` 确认 `mode` 为 `mock`。
+保留加密密钥时 `has_api_key` 可以仍为 `true`，不代表正在使用 API 模式。
 
 ## 测试
 
