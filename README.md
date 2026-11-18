@@ -186,7 +186,14 @@ CI 矩阵覆盖 Ubuntu / Windows 与 Python 3.11 / 3.12 / 3.13，共 6 组。核
 python -m evaluation.run
 ```
 
-输出到 `data/evaluation.json`，并按失败用例数量返回退出码，可直接用于 CI 门禁。
+输出到 `data/evaluation.json`。所有用例通过时退出码为 `0`，
+存在失败用例时为 `1`，不是失败用例数量；具体数量见报告中的
+`passed`、`failed` 字段。运行会覆盖该文件，耗时等动态字段可能产生 Git 差异。
+
+当前 CI 的 `Export evaluation report` 步骤设置了 `continue-on-error: true`，
+用于尽力导出报告；即使该步骤失败，工作流仍可能为绿色。
+因此，CI 绿色不能单独证明导出的评测报告通过，应同时检查步骤结果和报告。
+若需把此命令作为强制门禁，调用方必须让非零退出码阻断后续流程。
 
 ## 已知限制与设计取舍
 
