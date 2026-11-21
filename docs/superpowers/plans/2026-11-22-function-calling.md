@@ -35,7 +35,7 @@
 - 测试文件在顶部定义 `FakeResponse`（保存 `output`、`output_text`）和
   `FakeResponsesClient`（按顺序返回响应并把每次请求参数追加到 `calls`）。
 
-- [ ] **步骤 1：写失败测试**
+- [x] **步骤 1：写失败测试**
 
 ```python
 def test_tool_registry_exports_responses_function_schemas():
@@ -48,7 +48,7 @@ def test_tool_registry_exports_responses_function_schemas():
     assert "implementation" not in read_file
 ```
 
-- [ ] **步骤 2：运行测试确认失败**
+- [x] **步骤 2：运行测试确认失败**
 
 运行：
 
@@ -58,17 +58,17 @@ def test_tool_registry_exports_responses_function_schemas():
 
 预期：失败，原因是 `ToolRegistry.function_schemas` 尚不存在。
 
-- [ ] **步骤 3：实现最小 schema 导出**
+- [x] **步骤 3：实现最小 schema 导出**
 
 在 `ToolRegistry` 中遍历 `self.specs.values()`，对 Pydantic 参数模型调用
 `model_json_schema()`，对 `dict` 使用
 `{"type": "object", "additionalProperties": True}`，只返回公开 schema 字段。
 
-- [ ] **步骤 4：运行测试确认通过**
+- [x] **步骤 4：运行测试确认通过**
 
 运行同一个 pytest 命令，预期 `1 passed`。
 
-- [ ] **步骤 5：提交**
+- [x] **步骤 5：提交**
 
 ```powershell
 git add agent/tools.py tests/test_function_calling.py
@@ -96,7 +96,7 @@ git commit -m "feat: export safe responses tool schemas"
 - `FakeResponse`、`FakeResponsesClient` 沿用本任务 1 在测试文件顶部定义的
   fixture；fake client 的 `create(**kwargs)` 保存 `kwargs` 后按顺序返回响应。
 
-- [ ] **步骤 1：写失败测试**
+- [x] **步骤 1：写失败测试**
 
 ```python
 def test_responses_planner_parses_function_call_and_counts_request():
@@ -133,18 +133,18 @@ def test_responses_planner_parses_function_call_and_counts_request():
     assert planner.model_calls == 1
 ```
 
-- [ ] **步骤 2：运行测试确认失败**
+- [x] **步骤 2：运行测试确认失败**
 
 预期：失败，原因是 `respond_with_tools` 尚不存在。
 
-- [ ] **步骤 3：实现最小 Responses 解析**
+- [x] **步骤 3：实现最小 Responses 解析**
 
 增加统一的 response item 读取辅助方法，兼容字典、Pydantic 对象和
 `SimpleNamespace`。调用 `client.responses.create(model=self.model,
 input=..., tools=...)`，递增 `model_calls`，解析 `function_call` 的
 `arguments` JSON，并使用 `response.output_text` 作为最终文字。
 
-- [ ] **步骤 4：增加工具结果续轮测试**
+- [x] **步骤 4：增加工具结果续轮测试**
 
 ```python
 def test_responses_planner_sends_function_call_output_on_next_turn():
@@ -182,7 +182,7 @@ def test_responses_planner_sends_function_call_output_on_next_turn():
     assert client.calls[1]["input"][-1]["type"] == "function_call_output"
 ```
 
-- [ ] **步骤 5：运行定向测试**
+- [x] **步骤 5：运行定向测试**
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest tests/test_function_calling.py -q
@@ -190,7 +190,7 @@ def test_responses_planner_sends_function_call_output_on_next_turn():
 
 预期：schema 和 planner 解析测试全部通过。
 
-- [ ] **步骤 6：提交**
+- [x] **步骤 6：提交**
 
 ```powershell
 git add agent/planner.py tests/test_function_calling.py
@@ -218,7 +218,7 @@ git commit -m "feat: parse responses function calls"
   `supports_function_calling = True`，按顺序返回预设 turn，并把传入的
   `input_items` 保存到 `inputs`。
 
-- [ ] **步骤 1：写失败集成测试**
+- [x] **步骤 1：写失败集成测试**
 
 ```python
 def test_service_executes_native_function_call_and_returns_final_text():
@@ -254,11 +254,11 @@ def test_service_executes_native_function_call_and_returns_final_text():
     assert planner.inputs[-1][-1]["type"] == "function_call_output"
 ```
 
-- [ ] **步骤 2：运行测试确认失败**
+- [x] **步骤 2：运行测试确认失败**
 
 预期：失败，原因是 `AgentService` 仍然只识别 JSON `Plan`。
 
-- [ ] **步骤 3：实现原生循环**
+- [x] **步骤 3：实现原生循环**
 
 在上下文检索完成、JSON `Plan` 校验之前检测
 `getattr(self.planner, "supports_function_calling", False)`，调用独立的
@@ -266,12 +266,12 @@ def test_service_executes_native_function_call_and_returns_final_text():
 输出；每个工具调用都检查总时长、`max_steps`，并继续调用
 `ToolRegistry.execute()`。
 
-- [ ] **步骤 4：增加失败和预算测试**
+- [x] **步骤 4：增加失败和预算测试**
 
 测试未知工具会得到 `unknown_tool`，测试 `max_steps=1` 时第二个函数调用
 不会执行并返回 `blocked`。
 
-- [ ] **步骤 5：运行定向测试**
+- [x] **步骤 5：运行定向测试**
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest tests/test_function_calling.py -q
@@ -279,7 +279,7 @@ def test_service_executes_native_function_call_and_returns_final_text():
 
 预期：所有 Function Calling 测试通过。
 
-- [ ] **步骤 6：提交**
+- [x] **步骤 6：提交**
 
 ```powershell
 git add agent/service.py tests/test_function_calling.py
@@ -297,7 +297,7 @@ git commit -m "feat: execute responses function calls in service"
 - 修改：`docs/superpowers/plans/2026-11-22-function-calling.md`
 - 测试：全部现有测试与 `tests/test_function_calling.py`
 
-- [ ] **步骤 1：同步 README**
+- [x] **步骤 1：同步 README**
 
 把“Function Calling 仍在未来计划中”改为：
 
@@ -307,7 +307,7 @@ SafeDesk 会校验参数、执行工具、回传 function_call_output，并继�
 本轮未实现 Chat Completions 的原生 Function Calling；CI 和默认离线评测仍使用 mock/JSON 路径。
 ```
 
-- [ ] **步骤 2：运行完整测试**
+- [x] **步骤 2：运行完整测试**
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
@@ -315,7 +315,7 @@ SafeDesk 会校验参数、执行工具、回传 function_call_output，并继�
 
 预期：全部测试通过，且不访问真实 API。
 
-- [ ] **步骤 3：检查安全边界**
+- [x] **步骤 3：检查安全边界**
 
 ```powershell
 git diff --check

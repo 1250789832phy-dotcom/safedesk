@@ -1,5 +1,6 @@
 from uuid import uuid4
 import time
+import json
 
 from pydantic import ValidationError
 
@@ -117,6 +118,8 @@ class AgentService:
                 )
 
         try:
+            if getattr(self.planner, "supports_function_calling", False):
+                return self._submit_native(record, plan_request, started_at)
             plan = Plan.model_validate(self.planner.plan(plan_request))
         except (ValidationError, ValueError, TypeError) as error:
             return self._fail(record, f"Invalid plan: {error}", "invalid_plan")
@@ -180,6 +183,78 @@ class AgentService:
             return self._fail(record, f"Planner error: {error}", "planner_error")
         record.status = transition(record.status, TaskStatus.SUCCEEDED)
         return record.model_copy(deep=True)
+
+    def _submit_native(self, record, request, started_at):
+        record.status = transition(record.status, TaskStatus.PLANNED)
+        record.status = transition(record.status, TaskStatus.RUNNING)
+        history = None
+        steps_used = 0
+        try:
+            schemas = self.tools.function_schemas()
+            while True:
+                if self._timed_out(started_at):
+                    return self._block(record, "Blocked: total time budget exceeded.")
+                turn = self.planner.respond_with_tools(request, schemas, history)
+                function_calls = turn.get("function_calls", [])
+                text = turn.get("text", "")
+                if not function_calls:
+                    if not text:
+                        return self._fail(
+                            record,
+                            "Native planner returned no tool call or final text",
+                            "planner_error",
+                        )
+                    record.status = transition(record.status, TaskStatus.VERIFYING)
+                    record.report = text
+                    record.status = transition(record.status, TaskStatus.SUCCEEDED)
+                    return record.model_copy(deep=True)
+
+                output_items = list(turn.get("output_items", []))
+                next_items = output_items[:]
+                for call in function_calls:
+                    if steps_used >= self.max_steps:
+                        return self._block(
+                            record, f"Blocked: step limit is {self.max_steps}."
+                        )
+                    if self._timed_out(started_at):
+                        return self._block(
+                            record, "Blocked: total time budget exceeded."
+                        )
+                    remaining_seconds = self.max_duration_seconds - (
+                        self.clock() - started_at
+                    )
+                    if remaining_seconds <= 0:
+                        return self._block(
+                            record, "Blocked: total time budget exceeded."
+                        )
+                    steps_used += 1
+                    result = self.tools.execute(
+                        call["name"],
+                        call.get("arguments", {}),
+                        timeout_seconds=remaining_seconds,
+                    )
+                    record.trace.append(result)
+                    next_items.append(
+                        {
+                            "type": "function_call_output",
+                            "call_id": call["call_id"],
+                            "output": json.dumps(
+                                result.model_dump(mode="json"),
+                                ensure_ascii=False,
+                            ),
+                        }
+                    )
+                    if not result.ok:
+                        return self._fail(
+                            record,
+                            f"{result.error_category}: {result.message}",
+                            result.error_category or "tool_error",
+                        )
+                history = next_items
+        except ToolError as error:
+            return self._fail(record, str(error), "tool_error")
+        except Exception as error:
+            return self._fail(record, f"Planner error: {error}", "planner_error")
 
     def _timed_out(self, started_at: float) -> bool:
         return self.clock() - started_at > self.max_duration_seconds

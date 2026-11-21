@@ -74,6 +74,8 @@ class UnavailablePlanner:
 
 
 class OpenAIResponsesPlanner:
+    supports_function_calling = True
+
     def __init__(self, client, model: str, protocol="responses", api_key=""):
         self.client = client
         self.model = model
@@ -141,6 +143,94 @@ class OpenAIResponsesPlanner:
 
     def check_connection(self):
         self._generate("Reply with OK only.", probe=True)
+
+    @staticmethod
+    def _item_value(item, key, default=None):
+        if isinstance(item, dict):
+            return item.get(key, default)
+        return getattr(item, key, default)
+
+    @classmethod
+    def _item_dict(cls, item):
+        if isinstance(item, dict):
+            return dict(item)
+        if hasattr(item, "model_dump"):
+            return item.model_dump(mode="json")
+        keys = (
+            "id",
+            "type",
+            "status",
+            "role",
+            "content",
+            "call_id",
+            "name",
+            "arguments",
+        )
+        return {
+            key: value
+            for key in keys
+            if (value := cls._item_value(item, key, None)) is not None
+        }
+
+    def respond_with_tools(self, request, tools, input_items=None):
+        if self.protocol != "responses":
+            raise RuntimeError("Native Function Calling requires the Responses protocol")
+        payload = request if input_items is None else input_items
+        self.model_calls += 1
+        try:
+            response = self.client.responses.create(
+                model=self.model,
+                input=payload,
+                tools=tools,
+            )
+        except Exception as error:
+            code = getattr(error, "status_code", None)
+            suffix = f" (HTTP {code})" if isinstance(code, int) else ""
+            raise RuntimeError(
+                "模型请求失败，请检查网络、协议、模型名称、密钥或额度。" + suffix
+            ) from None
+
+        output_items = [
+            self._item_dict(item)
+            for item in (self._item_value(response, "output", None) or [])
+        ]
+        function_calls = []
+        for item in output_items:
+            if item.get("type") != "function_call":
+                continue
+            call_id = item.get("call_id")
+            name = item.get("name")
+            raw_arguments = item.get("arguments", "{}")
+            if not isinstance(call_id, str) or not call_id:
+                raise ValueError("Model function call is missing call_id")
+            if not isinstance(name, str) or not name:
+                raise ValueError("Model function call is missing name")
+            try:
+                arguments = (
+                    json.loads(raw_arguments)
+                    if isinstance(raw_arguments, str)
+                    else raw_arguments
+                )
+            except (TypeError, json.JSONDecodeError) as error:
+                raise ValueError("Model returned invalid function arguments") from error
+            if not isinstance(arguments, dict):
+                raise ValueError("Model function arguments must be an object")
+            function_calls.append(
+                {
+                    "call_id": call_id,
+                    "name": name,
+                    "arguments": arguments,
+                }
+            )
+
+        text = self._item_value(response, "output_text", "") or ""
+        if not isinstance(text, str):
+            text = ""
+        return {
+            "output_items": output_items,
+            "function_calls": function_calls,
+            "text": text,
+        }
 
     def plan(self, request: str) -> Plan:
         text = self._generate(

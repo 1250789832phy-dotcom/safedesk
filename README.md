@@ -232,7 +232,10 @@ python -m evaluation.run
 OpenAI 兼容 Responses API 运行。模型输出具有随机性，真实报告的通过数不等同于
 CI 通过数。
 
-**未实现**：Function Calling 仍在未来计划中，当前不宣称已实现。
+**Function Calling**：Responses API 原生 Function Calling 已实现。模型可以请求
+已注册工具，SafeDesk 会校验参数、执行工具、回传 `function_call_output`，
+再继续生成最终回复。CI 和默认离线评测仍使用 mock/JSON planner；
+本轮尚未实现 Chat Completions 的原生 Function Calling。
 
 **语料范围**：切分器覆盖 Markdown 与 Python，其他语言回退到段落切分。
 

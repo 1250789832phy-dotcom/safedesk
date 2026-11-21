@@ -117,6 +117,26 @@ class ToolRegistry:
     def reset_calls(self):
         self._calls = 0
 
+    def function_schemas(self) -> list[dict[str, object]]:
+        schemas = []
+        for spec in self.specs.values():
+            if spec.argument_model is dict:
+                parameters = {
+                    "type": "object",
+                    "additionalProperties": True,
+                }
+            else:
+                parameters = spec.argument_model.model_json_schema()
+            schemas.append(
+                {
+                    "type": "function",
+                    "name": spec.name,
+                    "description": spec.description,
+                    "parameters": parameters,
+                }
+            )
+        return schemas
+
     def _call_with_retry(self, name, arguments, *, timeout_seconds=30):
         deadline = time.monotonic() + max(0, timeout_seconds)
         executor = ThreadPoolExecutor(max_workers=1)
