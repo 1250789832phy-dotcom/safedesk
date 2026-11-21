@@ -79,6 +79,7 @@ class OpenAIResponsesPlanner:
         self.model = model
         self.protocol = protocol
         self._api_key = api_key
+        self.model_calls = 0
 
     @classmethod
     def from_environment(cls):
@@ -103,6 +104,7 @@ class OpenAIResponsesPlanner:
         )
 
     def _generate(self, prompt, *, probe=False):
+        self.model_calls += 1
         try:
             if self.protocol == "chat_completions":
                 options = {"max_completion_tokens": 64} if probe else {}

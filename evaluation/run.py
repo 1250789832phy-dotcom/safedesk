@@ -1,8 +1,10 @@
 import json
+import os
 import time
 from pathlib import Path
 
 from agent.models import Plan, ToolCall, TaskStatus
+from agent.planner import MockPlanner, OpenAIResponsesPlanner
 from agent.service import AgentService
 from agent.tools import ToolRegistry
 from context.index import ContextIndex
@@ -54,15 +56,35 @@ class UnknownToolPlanner:
         return "Unexpected finalization"
 
 
-def run_evaluation():
+def run_evaluation(planner=None, *, use_environment=False):
+    if planner is None and use_environment:
+        if os.getenv("SAFE_DESK_MODEL", "mock").lower() == "openai":
+            planner = OpenAIResponsesPlanner.from_environment()
+            mode = "openai_responses"
+        else:
+            planner = MockPlanner()
+            mode = "mock"
+    elif planner is None:
+        planner = MockPlanner()
+        mode = "mock"
+    else:
+        mode = "injected"
+
     documents = {
         "rules.md": "# Refund\n退款申请需在购买后 7 天内提交。"
     }
     results = []
     for case in CASES:
         started = time.perf_counter()
-        service = _service_for(case["id"], documents)
+        before_calls = getattr(planner, "model_calls", 0)
+        service = _service_for(
+            case["id"],
+            documents,
+            planner=planner,
+            deterministic_mock=mode == "mock",
+        )
         record = service.submit(case["input"])
+        after_calls = getattr(planner, "model_calls", before_calls)
         duration_ms = round((time.perf_counter() - started) * 1000, 3)
         actual = _actual_for(case["id"], record)
         passed = _matches(case["id"], record)
@@ -75,24 +97,28 @@ def run_evaluation():
                 # 否则报告里会出现 passed=true 与 failure_layer=context 并存的矛盾记录。
                 "failure_layer": "none" if passed else _failure_layer(case["id"], record),
                 "duration_ms": duration_ms,
-                "model_calls": 0,
+                "model_calls": max(0, after_calls - before_calls),
                 "cost": "unknown",
             }
         )
-    return {
-        "mode": "mock",
+    report = {
+        "mode": mode,
         "retrieval_mode": "keyword_fallback",
         "cases": results,
         "passed": sum(case["passed"] for case in results),
         "failed": sum(not case["passed"] for case in results),
+        "model_calls": sum(case["model_calls"] for case in results),
     }
+    return _redact_report(report)
 
 
-def _service_for(case_id, documents):
+def _service_for(case_id, documents, *, planner, deterministic_mock=False):
     index = ContextIndex.from_documents(documents)
-    if case_id == "tool_rejection":
+    if case_id == "tool_rejection" and deterministic_mock:
         return AgentService(
-            planner=UnknownToolPlanner(), context_index=index, retrieval_mode="keyword"
+            planner=UnknownToolPlanner(),
+            context_index=index,
+            retrieval_mode="keyword",
         )
     if case_id == "test_failure":
         tools = ToolRegistry()
@@ -103,9 +129,29 @@ def _service_for(case_id, documents):
             "stderr": "AssertionError: expected example",
         }
         return AgentService(
-            tools=tools, context_index=index, retrieval_mode="keyword"
+            planner=planner,
+            tools=tools,
+            context_index=index,
+            retrieval_mode="keyword",
         )
-    return AgentService(context_index=index, retrieval_mode="keyword")
+    return AgentService(
+        planner=planner,
+        context_index=index,
+        retrieval_mode="keyword",
+    )
+
+
+def _redact_report(value):
+    secret = os.getenv("OPENAI_API_KEY")
+    if not secret:
+        return value
+    if isinstance(value, str):
+        return value.replace(secret, "[REDACTED]")
+    if isinstance(value, list):
+        return [_redact_report(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _redact_report(item) for key, item in value.items()}
+    return value
 
 
 def _matches(case_id, record):
@@ -147,7 +193,7 @@ def _failure_layer(case_id, record):
 
 
 def main():
-    report = run_evaluation()
+    report = run_evaluation(use_environment=True)
     output_path = Path(__file__).resolve().parents[1] / "data" / "evaluation.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(

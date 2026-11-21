@@ -71,9 +71,14 @@
 正确拒绝未知工具、正确上报注入的非零测试结果，均表示评测通过。
 后者使用模拟测试工具返回值，不代表在评测中启动了一次真实失败的 pytest。
 
-**6 / 6 通过。** 完整报告见 [`data/evaluation.json`](data/evaluation.json)。
+默认离线评测使用确定性 mock planner，完整报告见
+[`data/evaluation.json`](data/evaluation.json)。CI 和不带环境配置的本地运行不会访问外部模型。
 
-> 当前的评测运行使用确定性 mock planner（`"mode": "mock"`、`"model_calls": 0`），目的是让归因逻辑本身可重复验证，不依赖模型随机性。真实模型接入为下一步工作，见"已知限制"。
+本次本地真实评测使用 OpenAI 兼容 Responses API（`"mode": "openai_responses"`），
+实际报告记录了 7 次模型调用、4 / 6 个用例通过；失败用例保留真实输出，不为追求
+全绿而修改评测断言。真实运行需要在当前 shell 中配置 `SAFE_DESK_MODEL=openai`、
+`OPENAI_BASE_URL`、`OPENAI_MODEL` 和 `OPENAI_API_KEY`。密钥只从进程环境读取，
+不会写入报告、日志或仓库。
 
 ## 快速开始
 
@@ -223,7 +228,11 @@ python -m evaluation.run
 `AgentService` 每个新任务重置调用计数，幂等命中则直接复用旧任务；
 直接使用注册表的调用方可用 `reset_calls()` 开始新的计数周期。
 
-**规划器**：默认 mock 实现使归因测试可重复；OpenAI 兼容适配器已实现但未纳入默认评测路径。
+**规划器**：默认 mock 实现使 CI 和归因测试可重复；真实评测可通过
+OpenAI 兼容 Responses API 运行。模型输出具有随机性，真实报告的通过数不等同于
+CI 通过数。
+
+**未实现**：Function Calling 仍在未来计划中，当前不宣称已实现。
 
 **语料范围**：切分器覆盖 Markdown 与 Python，其他语言回退到段落切分。
 
