@@ -1,5 +1,7 @@
 import subprocess
 import sys
+import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Callable
 
@@ -10,6 +12,10 @@ from agent.models import TaskRecord, ToolResult
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE_ROOT = PROJECT_ROOT / "workspace"
+
+
+class ToolError(RuntimeError):
+    pass
 
 
 class ReadFileArguments(BaseModel):
@@ -38,6 +44,9 @@ class ToolSpec:
 
 class ToolRegistry:
     def __init__(self, specs=None):
+        self._calls = 0
+        self.max_calls = 25
+        self.timeout_seconds = 10.0
         self.task_provider: Callable[[], list[TaskRecord]] = lambda: []
         self.specs = {
             spec.name: spec
@@ -79,6 +88,9 @@ class ToolRegistry:
         arguments: dict[str, object],
         timeout_seconds: float = 30,
     ) -> ToolResult:
+        self._calls += 1
+        if self._calls > self.max_calls:
+            raise ToolError("达到最大工具调用步数")
         spec = self.specs.get(name)
         if spec is None:
             return ToolResult(
@@ -100,14 +112,67 @@ class ToolRegistry:
                 message=f"Invalid arguments: {error.errors()[0]['msg']}",
                 error_category="invalid_arguments",
             )
+        return self._call_with_retry(name, parsed, timeout_seconds=timeout_seconds)
+
+    def reset_calls(self):
+        self._calls = 0
+
+    def _call_with_retry(self, name, arguments, *, timeout_seconds=30):
+        deadline = time.monotonic() + max(0, timeout_seconds)
+        executor = ThreadPoolExecutor(max_workers=1)
+        future = None
+        last_error = TimeoutError("Tool time budget exceeded")
+        try:
+            for attempt in range(3):
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                if future is None:
+                    future = executor.submit(
+                        self.execute_inner,
+                        name,
+                        arguments,
+                        timeout_seconds if attempt == 0 else remaining,
+                    )
+                try:
+                    return future.result(
+                        timeout=min(self.timeout_seconds, remaining)
+                    )
+                except (PermissionError, FileNotFoundError) as error:
+                    return ToolResult(
+                        tool_name=name,
+                        ok=False,
+                        message=f"{type(error).__name__}: {error}",
+                        error_category="tool_error",
+                    )
+                except (TimeoutError, OSError) as error:
+                    last_error = error
+                    # A live worker cannot be cancelled; retry its wait, not its work.
+                    if future.done() and future.exception() is not None:
+                        future = None
+                    if attempt < 2:
+                        delay = min(
+                            0.5 * 2 ** attempt,
+                            max(0, deadline - time.monotonic()),
+                        )
+                        time.sleep(delay)
+            raise ToolError(
+                f"工具执行超时/失败，已重试 2 次: "
+                f"{type(last_error).__name__}: {last_error}"
+            ) from last_error
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
+
+    def execute_inner(self, name, arguments, timeout_seconds=30) -> ToolResult:
+        spec = self.specs[name]
         try:
             if name == "run_tests":
-                data = self._run_tests(parsed, timeout_seconds)
+                data = self._run_tests(arguments, timeout_seconds)
             else:
                 data = (
-                    spec.implementation.run(parsed)
+                    spec.implementation.run(arguments)
                     if hasattr(spec.implementation, "run")
-                    else spec.implementation(parsed)
+                    else spec.implementation(arguments)
                 )
             if name == "run_tests" and data["returncode"] != 0:
                 output = "\n".join(
@@ -124,6 +189,8 @@ class ToolRegistry:
                     error_category="tests_failed",
                 )
             return ToolResult(tool_name=name, ok=True, message=str(data), data=data)
+        except (TimeoutError, OSError):
+            raise
         except Exception as error:
             return ToolResult(
                 tool_name=name,

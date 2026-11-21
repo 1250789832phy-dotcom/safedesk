@@ -7,9 +7,10 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from agent.changes import evaluate_gate
-from agent.models import RepairSuggestion, TaskRequest
+from agent.models import RepairSuggestion, TaskRequest, ToolResult
 from agent.service import AgentService
 from agent.settings import ModelSettings, SETTINGS_PATH
+from agent.tools import ToolError
 from apps.api.settings import register_settings
 
 
@@ -42,11 +43,21 @@ def create_app(
     repair_limit = 2
 
     def run_fixed_tests():
-        result = agent_service.tools.execute(
-            "run_tests",
-            {},
-            timeout_seconds=agent_service.max_duration_seconds,
-        )
+        with settings.lock:
+            agent_service.tools.reset_calls()
+            try:
+                result = agent_service.tools.execute(
+                    "run_tests",
+                    {},
+                    timeout_seconds=agent_service.max_duration_seconds,
+                )
+            except ToolError as error:
+                result = ToolResult(
+                    tool_name="run_tests",
+                    ok=False,
+                    message=str(error),
+                    error_category="tool_error",
+                )
         data = result.data if isinstance(result.data, dict) else {}
         failure_summary = result.message if not result.ok else ""
         return result, data, failure_summary

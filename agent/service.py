@@ -4,7 +4,7 @@ import time
 from pydantic import ValidationError
 
 from agent.changes import ChangeManager
-from agent.models import OutputPreference, Plan, TaskRecord, TaskStatus
+from agent.models import OutputPreference, Plan, TaskRecord, TaskStatus, ToolResult
 from agent.planner import (
     MockPlanner,
     OpenAIResponsesPlanner,
@@ -12,7 +12,7 @@ from agent.planner import (
     UnavailablePlanner,
 )
 from agent.state import transition
-from agent.tools import ToolRegistry
+from agent.tools import ToolError, ToolRegistry
 from context.index import ContextIndex, select_context
 
 
@@ -67,6 +67,7 @@ class AgentService:
         if idempotency_key and idempotency_key in self.idempotency:
             return self.records[self.idempotency[idempotency_key]].model_copy(deep=True)
 
+        self.tools.reset_calls()
         started_at = self.clock()
         record = TaskRecord(
             task_id=str(uuid4()),
@@ -139,11 +140,19 @@ class AgentService:
             )
             if remaining_seconds <= 0:
                 return self._block(record, "Blocked: total time budget exceeded.")
-            result = self.tools.execute(
-                call.name,
-                call.arguments,
-                timeout_seconds=remaining_seconds,
-            )
+            try:
+                result = self.tools.execute(
+                    call.name,
+                    call.arguments,
+                    timeout_seconds=remaining_seconds,
+                )
+            except ToolError as error:
+                result = ToolResult(
+                    tool_name=call.name,
+                    ok=False,
+                    message=str(error),
+                    error_category="tool_error",
+                )
             record.trace.append(result)
             if self._timed_out(started_at):
                 return self._block(record, "Blocked: total time budget exceeded.")

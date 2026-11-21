@@ -52,7 +52,7 @@ def test_mock_embedding_retrieves_similar_vectors():
 
     result = index.search("refund purchase", mode="embedding")
 
-    assert result.mode == "mock_embedding"
+    assert result.mode == "local_hash_embedding"
     assert result.matches[0].source == "docs/a.md"
 
 

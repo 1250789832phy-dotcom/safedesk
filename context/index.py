@@ -1,5 +1,6 @@
 import math
 import re
+import zlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -27,6 +28,19 @@ class ContextSelection:
     excluded_sources: list[str]
     estimated_tokens: int
     truncated: bool
+
+
+def _hash_embedding(text: str, dim: int = 256) -> list[float]:
+    if dim <= 0:
+        raise ValueError("Embedding dimension must be positive")
+    vector = [0.0] * dim
+    folded = text.casefold()
+    for width in (1, 2):
+        for start in range(len(folded) - width + 1):
+            hashed = zlib.crc32(folded[start : start + width].encode("utf-8"))
+            vector[hashed % dim] += -1.0 if hashed & 0x80000000 else 1.0
+    magnitude = math.sqrt(sum(value * value for value in vector))
+    return [value / magnitude for value in vector] if magnitude else vector
 
 
 def chunk_markdown(text: str, source: str) -> list[Chunk]:
@@ -110,7 +124,7 @@ class ContextIndex:
     def __init__(
         self,
         chunks: list[Chunk],
-        embedding_provider: Callable[[str], list[float]] | None = None,
+        embedding_provider: Callable[[str], list[float]] | None = _hash_embedding,
     ):
         self.embedding_provider = embedding_provider
         self.chunks = [
@@ -129,7 +143,7 @@ class ContextIndex:
     def from_documents(
         cls,
         documents: dict[str, str],
-        embedding_provider: Callable[[str], list[float]] | None = None,
+        embedding_provider: Callable[[str], list[float]] | None = _hash_embedding,
     ):
         chunks = []
         for source, text in documents.items():
@@ -143,7 +157,7 @@ class ContextIndex:
     def from_project(
         cls,
         root: Path,
-        embedding_provider: Callable[[str], list[float]] | None = None,
+        embedding_provider: Callable[[str], list[float]] | None = _hash_embedding,
     ):
         documents = {}
         for path in root.rglob("*"):
@@ -164,31 +178,46 @@ class ContextIndex:
         return cls.from_documents(documents, embedding_provider)
 
     def search(self, query: str, mode: str = "keyword") -> SearchResult:
-        if mode == "embedding":
+        if mode not in {"keyword", "embedding", "hybrid"}:
+            raise ValueError(f"Unsupported retrieval mode: {mode}")
+        if mode in {"embedding", "hybrid"}:
             if self.embedding_provider is None:
                 raise ValueError("Embedding mode requires an embedding provider")
             query_vector = self.embedding_provider(query)
-            ranked = sorted(
-                (
-                    (_cosine(query_vector, chunk.vector or []), chunk)
-                    for chunk in self.chunks
-                ),
-                key=lambda item: item[0],
-                reverse=True,
-            )
-            matches = [chunk for score, chunk in ranked if score > 0][:5]
-            return SearchResult("mock_embedding", matches)
-        if mode != "keyword":
-            raise ValueError(f"Unsupported retrieval mode: {mode}")
+            if mode == "embedding":
+                ranked = sorted(
+                    (
+                        (_cosine(query_vector, chunk.vector or []), chunk)
+                        for chunk in self.chunks
+                    ),
+                    key=lambda item: item[0],
+                    reverse=True,
+                )
+                matches = [chunk for score, chunk in ranked if score > 0][:5]
+                return SearchResult("local_hash_embedding", matches)
         terms = {word.casefold() for word in re.findall(r"\w+", query) if len(word) > 1}
         ranked = []
         for chunk in self.chunks:
             text = f"{chunk.heading or ''}\n{chunk.text}".casefold()
             score = sum(term in text for term in terms)
-            if score:
-                ranked.append((score, chunk))
+            ranked.append((score, chunk))
+        if mode == "hybrid":
+            max_keyword = max((score for score, _ in ranked), default=0) or 1
+            combined = []
+            for keyword_score, chunk in ranked:
+                cosine = _cosine(query_vector, chunk.vector or [])
+                if keyword_score or cosine > 0:
+                    score = (
+                        0.5 * keyword_score / max_keyword
+                        + 0.5 * (cosine + 1) / 2
+                    )
+                    combined.append((score, chunk))
+            combined.sort(key=lambda item: item[0], reverse=True)
+            return SearchResult("hybrid", [chunk for _, chunk in combined[:5]])
         ranked.sort(key=lambda item: item[0], reverse=True)
-        return SearchResult("keyword_fallback", [chunk for _, chunk in ranked[:5]])
+        return SearchResult(
+            "keyword_fallback", [chunk for score, chunk in ranked if score][:5]
+        )
 
 
 def select_context(matches: list[Chunk], token_budget: int) -> ContextSelection:
