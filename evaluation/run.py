@@ -91,7 +91,9 @@ def run_evaluation():
 def _service_for(case_id, documents):
     index = ContextIndex.from_documents(documents)
     if case_id == "tool_rejection":
-        return AgentService(planner=UnknownToolPlanner(), context_index=index)
+        return AgentService(
+            planner=UnknownToolPlanner(), context_index=index, retrieval_mode="keyword"
+        )
     if case_id == "test_failure":
         tools = ToolRegistry()
         tools._run_tests = lambda arguments, timeout_seconds=30: {
@@ -100,8 +102,10 @@ def _service_for(case_id, documents):
             "stdout": "1 failed",
             "stderr": "AssertionError: expected example",
         }
-        return AgentService(tools=tools, context_index=index)
-    return AgentService(context_index=index)
+        return AgentService(
+            tools=tools, context_index=index, retrieval_mode="keyword"
+        )
+    return AgentService(context_index=index, retrieval_mode="keyword")
 
 
 def _matches(case_id, record):

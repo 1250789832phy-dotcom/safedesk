@@ -4,7 +4,8 @@
 
 Implement the user's tool retry, call budget, local hash embedding and hybrid
 retrieval requirements in the existing `agent/` and `context/` packages.
-Keep the existing keyword search default and structured validation failures.
+Keep structured validation failures. Following the user's later choice, default
+task retrieval to embedding while keeping low-level index search keyword-based.
 
 ## Tool Execution
 
@@ -38,6 +39,12 @@ cosine similarity are eligible; return at most five. Keyword mode retains its
 existing behavior and keyword_fallback label. Hash similarity is lexical,
 not learned semantic similarity.
 
+`AgentService` accepts `retrieval_mode="embedding"` by default, with explicit
+keyword/hybrid alternatives. Reject unknown modes and vector modes without a
+provider at construction. Environment-created services inherit the same default.
+The six existing evaluation cases explicitly select keyword to retain their
+keyword hit/miss contracts; separate service tests exercise embedding integration.
+
 ## Verification
 
 Preserve the 117-test baseline, updating only the old embedding mode label
@@ -45,3 +52,6 @@ assertion for the explicitly requested contract change. Add timeout, transient
 retry, call budget/reset, invalid input, service failure, factory default,
 determinism/normalization and meaningful hybrid ranking tests. Run the full suite
 and the in-memory evaluation; no real model or credentials are needed.
+Update the service integration label for the chosen default without removing its
+source or planner-context assertions. Publish verified commits to GitHub and
+check all six CI matrix jobs against the exact pushed SHA.

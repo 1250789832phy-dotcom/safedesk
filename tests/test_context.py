@@ -118,5 +118,5 @@ def test_retrieved_context_and_sources_are_passed_to_the_planner():
     record = service.submit("How do refunds work?")
 
     assert "Refunds require a receipt" in planner.seen_request
-    assert record.retrieval_mode == "keyword_fallback"
+    assert record.retrieval_mode == "local_hash_embedding"
     assert record.context_sources == ["docs/policy.md"]

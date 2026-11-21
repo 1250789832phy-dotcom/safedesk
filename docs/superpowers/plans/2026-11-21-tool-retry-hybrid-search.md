@@ -7,6 +7,8 @@
 **Architecture:** Keep ToolResult validation behavior, add ToolError for exhausted
 execution budgets, and handle it at existing callers. Extend ContextIndex without
 changing its default keyword retrieval mode.
+The user's later choice changes AgentService's default to embedding, not the
+low-level index default; existing keyword evaluation stays explicit.
 
 **Tech Stack:** Python 3.11+, concurrent.futures, time, zlib, math, pytest.
 
@@ -63,3 +65,25 @@ changing its default keyword retrieval mode.
 - No real provider calls, extra dependencies or test assertion removals.
 - Existing embedding result label assertion intentionally changed as requested.
 - Changes remain on the local feature branch; remote CI has not been triggered.
+
+## Follow-Up: Default Embedding and Publish
+
+- [x] Add six service retrieval tests and observe all six failing before changes.
+- [x] Default AgentService to embedding, support explicit modes and fail fast for
+  invalid modes/missing providers; keep evaluation explicitly keyword-based.
+- [x] Update service integration label and README, preserving source assertions.
+- [x] Run targeted/full tests, in-memory evaluation and whitespace checks.
+- [ ] Commit with the requested phy identity, fast-forward main and push.
+- [ ] Verify six CI jobs and evaluation export steps for the pushed SHA.
+- [ ] Record final evidence in the learning handoff.
+
+### Follow-Up Local Evidence
+
+- New service tests before implementation: 6 failed for the expected missing
+  default, mode selection and provider validation.
+- Targeted service/context/evaluation tests after implementation: 15 passed.
+- Complete suite: 144 passed in 15.91s (117 baseline plus 27 added).
+- In-memory evaluation: 6 passed, 0 failed, 0 model calls.
+- Whitespace check passed; no real model calls or new dependencies.
+- Publication checkboxes are intentionally pending in this local evidence commit;
+  final push/CI evidence will be recorded in the external learning handoff.

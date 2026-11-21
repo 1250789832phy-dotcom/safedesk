@@ -26,9 +26,18 @@ class AgentService:
         clock=time.monotonic,
         context_index: ContextIndex | None = None,
         context_token_budget: int = 1200,
+        retrieval_mode: str = "embedding",
     ):
         if max_steps < 1 or max_duration_seconds <= 0 or context_token_budget < 0:
             raise ValueError("Agent budgets must be positive")
+        if retrieval_mode not in {"keyword", "embedding", "hybrid"}:
+            raise ValueError(f"Unsupported retrieval mode: {retrieval_mode}")
+        if (
+            context_index is not None
+            and retrieval_mode != "keyword"
+            and context_index.embedding_provider is None
+        ):
+            raise ValueError("Vector retrieval requires an embedding provider")
         self.planner = planner or MockPlanner()
         self.tools = tools or ToolRegistry()
         self.max_steps = max_steps
@@ -36,6 +45,7 @@ class AgentService:
         self.clock = clock
         self.context_index = context_index
         self.context_token_budget = context_token_budget
+        self.retrieval_mode = retrieval_mode
         self.change_manager = ChangeManager()
         self.records: dict[str, TaskRecord] = {}
         self.idempotency: dict[str, str] = {}
@@ -87,7 +97,7 @@ class AgentService:
 
         plan_request = request
         if self.context_index is not None:
-            search = self.context_index.search(request)
+            search = self.context_index.search(request, mode=self.retrieval_mode)
             selection = select_context(
                 search.matches, token_budget=self.context_token_budget
             )

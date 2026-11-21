@@ -198,7 +198,11 @@ python -m evaluation.run
 
 ## 已知限制与设计取舍
 
-**检索层**：默认仍为关键词检索（`keyword_fallback`）。索引默认离线生成
+**检索层**：任务服务 `AgentService` 默认使用 embedding 检索，结果标记为
+`local_hash_embedding`；可在构造时传入 `retrieval_mode="keyword"` 或
+`retrieval_mode="hybrid"` 显式切换。底层 `index.search(query)` 仍默认使用
+关键词检索（`keyword_fallback`），现有六项评测也显式选择 keyword，
+保持原有关键词命中与未命中契约。索引默认离线生成
 256 维字符哈希向量：文本 casefold 后取字符 1-gram / 2-gram，经 CRC32
 定位并累计带符号计数，最后 L2 归一化，无网络调用或额外依赖。
 `index.search(query, mode="embedding")` 使用余弦相似度，返回
