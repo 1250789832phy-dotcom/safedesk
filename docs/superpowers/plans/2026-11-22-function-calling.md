@@ -324,7 +324,7 @@ rg -n "OPENAI_API_KEY|Authorization|Function Calling" README.md agent tests docs
 
 确认没有测试 fixture、报告或文档硬编码真实密钥。
 
-- [ ] **步骤 4：提交并推送**
+- [x] **步骤 4：提交并推送**
 
 ```powershell
 git add README.md agent tests docs/superpowers
