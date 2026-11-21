@@ -74,14 +74,13 @@ class UnavailablePlanner:
 
 
 class OpenAIResponsesPlanner:
-    supports_function_calling = True
-
     def __init__(self, client, model: str, protocol="responses", api_key=""):
         self.client = client
         self.model = model
         self.protocol = protocol
         self._api_key = api_key
         self.model_calls = 0
+        self.supports_function_calling = protocol == "responses"
 
     @classmethod
     def from_environment(cls):
