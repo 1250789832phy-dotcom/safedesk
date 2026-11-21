@@ -13,6 +13,8 @@ task retrieval to embedding while keeping low-level index search keyword-based.
 then delegates to `_call_with_retry` and `execute_inner`. Defaults are 25 calls,
 10 seconds per wait and three attempts with 0.5/1 second backoff. A caller's
 remaining task duration bounds all waits and backoff together.
+If remaining time cannot cover the next full backoff, stop retrying immediately
+instead of shortening the delay and risking another call near the deadline.
 
 Python threads cannot be forcibly stopped. A timeout retries waiting for the same
 unfinished Future instead of starting an overlapping invocation. A completed

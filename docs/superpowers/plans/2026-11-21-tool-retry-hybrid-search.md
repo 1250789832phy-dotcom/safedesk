@@ -87,3 +87,17 @@ low-level index default; existing keyword evaluation stays explicit.
 - Whitespace check passed; no real model calls or new dependencies.
 - Publication checkboxes are intentionally pending in this local evidence commit;
   final push/CI evidence will be recorded in the external learning handoff.
+
+### CI Budget Regression
+
+- Initial push e9f676d triggered run 44892394622: four jobs passed; Windows
+  Python 3.11/3.12 failed the existing remaining-budget assertion (two calls
+  instead of one). Evaluation export was skipped in those failed jobs.
+- Truncating backoff to the remaining budget allowed another call when the
+  platform clock still showed time after sleep.
+- Added a deterministic fixed-clock regression: failed with three calls before
+  the fix. Now stop when the budget cannot cover the full backoff. The existing
+  wall-clock assertion and expected single call are unchanged.
+- Focused tool suite after the fix: 14 passed in 3.64s.
+- Full suite: 145 passed in 17.35s; in-memory evaluation 6 passed, 0 failed,
+  0 model calls. Read-only review found no blocking issues.

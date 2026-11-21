@@ -164,6 +164,25 @@ def test_tool_retries_respect_total_remaining_budget():
     assert len(calls) == 1
 
 
+def test_no_retry_when_budget_cannot_cover_backoff(monkeypatch):
+    from agent.tools import ToolError
+
+    calls = []
+    delays = []
+
+    def busy_tool(arguments):
+        calls.append(1)
+        raise OSError("busy")
+
+    monkeypatch.setattr("agent.tools.time.monotonic", lambda: 100.0)
+    monkeypatch.setattr("agent.tools.time.sleep", delays.append)
+    with pytest.raises(ToolError):
+        registry_for(busy_tool).execute("test_tool", {}, timeout_seconds=0.05)
+
+    assert len(calls) == 1
+    assert delays == []
+
+
 def test_timeout_wait_can_recover_without_replaying_tool(monkeypatch):
     from threading import Event
 

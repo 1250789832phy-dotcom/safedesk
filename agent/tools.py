@@ -151,10 +151,9 @@ class ToolRegistry:
                     if future.done() and future.exception() is not None:
                         future = None
                     if attempt < 2:
-                        delay = min(
-                            0.5 * 2 ** attempt,
-                            max(0, deadline - time.monotonic()),
-                        )
+                        delay = 0.5 * 2 ** attempt
+                        if deadline - time.monotonic() <= delay:
+                            break
                         time.sleep(delay)
             raise ToolError(
                 f"工具执行超时/失败，已重试 2 次: "
