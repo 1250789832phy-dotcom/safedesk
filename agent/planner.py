@@ -80,7 +80,7 @@ class OpenAIResponsesPlanner:
         self.protocol = protocol
         self._api_key = api_key
         self.model_calls = 0
-        self.supports_function_calling = protocol == "responses"
+        self.supports_function_calling = protocol in {"responses", "chat_completions"}
 
     @classmethod
     def from_environment(cls):
@@ -172,8 +172,10 @@ class OpenAIResponsesPlanner:
         }
 
     def respond_with_tools(self, request, tools, input_items=None):
+        if self.protocol == "chat_completions":
+            return self._respond_chat_with_tools(request, tools, input_items)
         if self.protocol != "responses":
-            raise RuntimeError("Native Function Calling requires the Responses protocol")
+            raise RuntimeError("Unsupported native Function Calling protocol")
         payload = request if input_items is None else input_items
         self.model_calls += 1
         try:
@@ -225,11 +227,121 @@ class OpenAIResponsesPlanner:
         text = self._item_value(response, "output_text", "") or ""
         if not isinstance(text, str):
             text = ""
-        return {
+        return self._redact_native_turn({
             "output_items": output_items,
             "function_calls": function_calls,
             "text": text,
-        }
+        })
+
+    def _redact_native_turn(self, turn):
+        def redact(value):
+            if isinstance(value, str):
+                return value.replace(self._api_key, "[REDACTED]") if self._api_key else value
+            if isinstance(value, list):
+                return [redact(item) for item in value]
+            if isinstance(value, dict):
+                return {redact(key): redact(item) for key, item in value.items()}
+            return value
+
+        sanitized = redact(turn)
+        call_ids = [call["call_id"] for call in sanitized["function_calls"]]
+        if len(call_ids) != len(set(call_ids)):
+            raise ValueError("Model returned duplicate tool call ids")
+        return sanitized
+
+    def _respond_chat_with_tools(self, request, tools, input_items):
+        items = (
+            [{"role": "user", "content": request}]
+            if input_items is None
+            else input_items
+        )
+        # Service stores normalized tool outputs; adapt only at the API boundary.
+        messages = [
+            {
+                "role": "tool",
+                "tool_call_id": item["call_id"],
+                "content": item["output"],
+            }
+            if item.get("type") == "function_call_output"
+            else dict(item)
+            for item in items
+        ]
+        chat_tools = [
+            {
+                "type": "function",
+                "function": {key: value for key, value in tool.items() if key != "type"},
+            }
+            for tool in tools
+        ]
+        self.model_calls += 1
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model, messages=messages, tools=chat_tools,
+            )
+        except Exception as error:
+            code = getattr(error, "status_code", None)
+            suffix = f" (HTTP {code})" if isinstance(code, int) else ""
+            raise RuntimeError(
+                "模型请求失败，请检查网络、协议、模型名称、密钥或额度。" + suffix
+            ) from None
+
+        choices = self._item_value(response, "choices", None) or []
+        if not choices:
+            raise ValueError("Model returned no completion choices")
+        choice = choices[0]
+        finish_reason = self._item_value(choice, "finish_reason")
+        if finish_reason not in {"stop", "tool_calls"}:
+            raise ValueError("Model returned an incomplete or unsupported completion")
+        message = self._item_value(choice, "message")
+        text = self._item_value(message, "content")
+        calls = self._item_value(message, "tool_calls", None) or []
+        function_calls = []
+        output_calls = []
+        seen_ids = set()
+        for call in calls:
+            if self._item_value(call, "type") != "function":
+                raise ValueError("Model returned an unsupported tool call type")
+            call_id = self._item_value(call, "id")
+            function = self._item_value(call, "function")
+            name = self._item_value(function, "name")
+            raw_arguments = self._item_value(function, "arguments")
+            if not isinstance(call_id, str) or not call_id.strip():
+                raise ValueError("Model tool call is missing id")
+            if call_id in seen_ids:
+                raise ValueError("Model returned duplicate tool call ids")
+            seen_ids.add(call_id)
+            if not isinstance(name, str) or not name.strip():
+                raise ValueError("Model tool call is missing name")
+            try:
+                arguments = json.loads(raw_arguments)
+            except (TypeError, json.JSONDecodeError):
+                raise ValueError("Model returned invalid function arguments") from None
+            if not isinstance(arguments, dict):
+                raise ValueError("Model function arguments must be an object")
+            function_calls.append(
+                {"call_id": call_id, "name": name, "arguments": arguments}
+            )
+            output_calls.append(
+                {
+                    "id": call_id,
+                    "type": "function",
+                    "function": {"name": name, "arguments": raw_arguments},
+                }
+            )
+        if text is not None and not isinstance(text, str):
+            raise ValueError("Model returned invalid completion text")
+        if not function_calls and (
+            finish_reason == "tool_calls" or not text or not text.strip()
+        ):
+            raise ValueError("Model returned no tool call or final text")
+        assistant = {"role": "assistant", "content": text}
+        if output_calls:
+            assistant["tool_calls"] = output_calls
+        return self._redact_native_turn({
+            "output_items": [assistant],
+            "function_calls": function_calls,
+            "text": text or "",
+        })
 
     def plan(self, request: str) -> Plan:
         text = self._generate(
