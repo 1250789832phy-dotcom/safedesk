@@ -87,18 +87,6 @@ def test_responses_planner_parses_function_call_and_counts_request():
     assert planner.model_calls == 1
 
 
-def test_chat_completions_planner_keeps_json_plan_path():
-    from agent.planner import OpenAIResponsesPlanner
-
-    planner = OpenAIResponsesPlanner(
-        FakeResponsesClient([]),
-        "test-model",
-        protocol="chat_completions",
-    )
-
-    assert planner.supports_function_calling is False
-
-
 def test_responses_planner_sends_function_call_output_on_next_turn():
     from agent.planner import OpenAIResponsesPlanner
 

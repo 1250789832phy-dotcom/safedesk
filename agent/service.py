@@ -195,6 +195,8 @@ class AgentService:
                 if self._timed_out(started_at):
                     return self._block(record, "Blocked: total time budget exceeded.")
                 turn = self.planner.respond_with_tools(request, schemas, history)
+                if self._timed_out(started_at):
+                    return self._block(record, "Blocked: total time budget exceeded.")
                 function_calls = turn.get("function_calls", [])
                 text = turn.get("text", "")
                 if not function_calls:
@@ -210,7 +212,12 @@ class AgentService:
                     return record.model_copy(deep=True)
 
                 output_items = list(turn.get("output_items", []))
-                next_items = output_items[:]
+                next_items = (
+                    [{"role": "user", "content": request}]
+                    if history is None
+                    else list(history)
+                )
+                next_items.extend(output_items)
                 for call in function_calls:
                     if steps_used >= self.max_steps:
                         return self._block(

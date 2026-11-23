@@ -232,10 +232,21 @@ python -m evaluation.run
 OpenAI 兼容 Responses API 运行。模型输出具有随机性，真实报告的通过数不等同于
 CI 通过数。
 
-**Function Calling**：Responses API 原生 Function Calling 已实现。模型可以请求
-已注册工具，SafeDesk 会校验参数、执行工具、回传 `function_call_output`，
-再继续生成最终回复。CI 和默认离线评测仍使用 mock/JSON planner；
-本轮尚未实现 Chat Completions 的原生 Function Calling。
+**Function Calling**：项目支持的两种协议均已实现非流式原生函数工具调用：
+Responses 使用 `function_call` / `function_call_output`；
+Chat Completions 使用原生 `tools`、`message.tool_calls`，以
+`role="tool"` 和对应的 `tool_call_id` 回传执行结果。
+两条路径均通过 `ToolRegistry` 校验和执行工具，保留多轮历史，
+支持单轮多个调用（按顺序执行），并遵守步骤数、工具调用数和时间预算。
+第一个工具执行失败时结束任务，不继续执行剩余工具。
+
+这里的“双协议支持”不代表任意中转站或模型均可用，也不包含流式工具调用、
+旧版 `functions` / `function_call` 参数或其他厂商专有协议。
+原生协议测试使用真实 OpenAI SDK 和模拟 HTTP，不访问外部模型；
+CI 的默认评测仍使用 mock/JSON planner，既有真实报告不作为新增
+Chat Completions 工具调用已实测的证明。
+项目介绍可写“支持 Responses 与 Chat Completions 双协议原生 Function Calling”，
+不宜笼统写“全协议、全模型支持”。
 
 **语料范围**：切分器覆盖 Markdown 与 Python，其他语言回退到段落切分。
 
