@@ -11,7 +11,9 @@ from agent.models import RepairSuggestion, TaskRequest, ToolResult
 from agent.service import AgentService
 from agent.settings import ModelSettings, SETTINGS_PATH
 from agent.tools import ToolError
+from apps.api.eval_hub import register_evaluation
 from apps.api.settings import register_settings
+from evaluation.hub import DEFAULT_DB, EvalHub
 
 
 class ChangeProposalRequest(BaseModel):
@@ -30,6 +32,7 @@ class ApplyConfirmation(BaseModel):
 
 def create_app(
     service: AgentService | None = None, *, settings_path=None, planner_factory=None,
+    evaluation_db: Path | str = DEFAULT_DB,
 ) -> FastAPI:
     agent_service = service or AgentService.from_environment()
     app = FastAPI(title="SafeDesk Agent")
@@ -40,6 +43,7 @@ def create_app(
         load=service is None or settings_path is not None,
     )
     register_settings(app, settings)
+    register_evaluation(app, EvalHub(evaluation_db))
     repair_limit = 2
 
     def run_fixed_tests():
