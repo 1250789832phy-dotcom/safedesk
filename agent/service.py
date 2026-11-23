@@ -14,7 +14,8 @@ from agent.planner import (
 )
 from agent.state import transition
 from agent.tools import ToolError, ToolRegistry
-from context.index import ContextIndex, select_context
+from context.index import ContextIndex
+from context.retrieval import retrieve
 
 
 class AgentService:
@@ -28,6 +29,7 @@ class AgentService:
         context_index: ContextIndex | None = None,
         context_token_budget: int = 1200,
         retrieval_mode: str = "embedding",
+        rerank_context: bool = True,
     ):
         if max_steps < 1 or max_duration_seconds <= 0 or context_token_budget < 0:
             raise ValueError("Agent budgets must be positive")
@@ -47,6 +49,7 @@ class AgentService:
         self.context_index = context_index
         self.context_token_budget = context_token_budget
         self.retrieval_mode = retrieval_mode
+        self.rerank_context = rerank_context
         self.change_manager = ChangeManager()
         self.records: dict[str, TaskRecord] = {}
         self.idempotency: dict[str, str] = {}
@@ -98,11 +101,11 @@ class AgentService:
 
         plan_request = request
         if self.context_index is not None:
-            search = self.context_index.search(request, mode=self.retrieval_mode)
-            selection = select_context(
-                search.matches, token_budget=self.context_token_budget
+            mode, _, selection = retrieve(
+                self.context_index, request, mode=self.retrieval_mode,
+                rerank=self.rerank_context, token_budget=self.context_token_budget,
             )
-            record.retrieval_mode = search.mode
+            record.retrieval_mode = mode
             record.context_sources = list(
                 dict.fromkeys(chunk.source for chunk in selection.included)
             )

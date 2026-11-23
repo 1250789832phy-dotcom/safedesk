@@ -6,6 +6,9 @@ from pathlib import Path
 from typing import Callable
 
 
+DEFAULT_SEARCH_LIMIT = 5
+
+
 @dataclass(frozen=True)
 class Chunk:
     source: str
@@ -177,9 +180,13 @@ class ContextIndex:
                 continue
         return cls.from_documents(documents, embedding_provider)
 
-    def search(self, query: str, mode: str = "keyword") -> SearchResult:
+    def search(
+        self, query: str, mode: str = "keyword", *, limit: int = DEFAULT_SEARCH_LIMIT
+    ) -> SearchResult:
         if mode not in {"keyword", "embedding", "hybrid"}:
             raise ValueError(f"Unsupported retrieval mode: {mode}")
+        if limit < 1:
+            raise ValueError("Search limit must be positive")
         if mode in {"embedding", "hybrid"}:
             if self.embedding_provider is None:
                 raise ValueError("Embedding mode requires an embedding provider")
@@ -193,7 +200,7 @@ class ContextIndex:
                     key=lambda item: item[0],
                     reverse=True,
                 )
-                matches = [chunk for score, chunk in ranked if score > 0][:5]
+                matches = [chunk for score, chunk in ranked if score > 0][:limit]
                 return SearchResult("local_hash_embedding", matches)
         terms = {word.casefold() for word in re.findall(r"\w+", query) if len(word) > 1}
         ranked = []
@@ -213,10 +220,10 @@ class ContextIndex:
                     )
                     combined.append((score, chunk))
             combined.sort(key=lambda item: item[0], reverse=True)
-            return SearchResult("hybrid", [chunk for _, chunk in combined[:5]])
+            return SearchResult("hybrid", [chunk for _, chunk in combined[:limit]])
         ranked.sort(key=lambda item: item[0], reverse=True)
         return SearchResult(
-            "keyword_fallback", [chunk for score, chunk in ranked if score][:5]
+            "keyword_fallback", [chunk for score, chunk in ranked if score][:limit]
         )
 
 

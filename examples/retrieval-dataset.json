@@ -1,0 +1,15 @@
+{
+  "name": "refund-policy-demo",
+  "documents": {
+    "a1-archive.md": "# Archive\nRefund draft notes for the old policy.",
+    "a2-list.md": "# List\nRefund entries are listed in the policy backlog.",
+    "a3-search.md": "# Search\nRefund results are grouped by policy topic.",
+    "a4-meeting.md": "# Meeting\nRefund questions were discussed before the policy review.",
+    "a5-index.md": "# Index\nRefund documents have an internal policy tag.",
+    "policy.md": "# Refund policy\nRequests must arrive within seven days."
+  },
+  "cases": [
+    {"id": "policy-hit", "query": "refund policy", "expected_source": "policy.md"},
+    {"id": "missing-topic", "query": "unrelatedxyz", "expected_source": null}
+  ]
+}
